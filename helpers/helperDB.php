@@ -37,8 +37,8 @@ function displayDataErrorFromDB($dbLink) {
 /**
  * get list of full categories or one category by id
  *
- * @param $dbLink           - resource of connection with db
- * @param bool $withId      - id of concrete category
+ * @param $dbLink - resource of connection with db
+ * @param bool $withId - id of concrete category
  *
  * @return array
  */
@@ -46,24 +46,31 @@ function getCategories($dbLink, $withId = false) {
 
   $categories = [];
   $sql = "SELECT * FROM `categories`";
-  $resultQueryDB = mysqli_query($dbLink, $sql);
+
+  // подготавливаем запрос
+  $stmt = db_get_prepare_stmt($dbLink, $sql);
+
+  // выполняем запрос
+  $resultQuery = mysqli_stmt_execute($stmt);
 
   //(( если запрос не прошел - показать ошибку ))
-  $resultQueryDB ?: displayDataErrorFromDB($dbLink);
+  $resultQuery ?: displayDataErrorFromDB($dbLink);
 
   //(( 'вытряхиваем' результат из базды данных ))
+  $resultQueryDB = mysqli_stmt_get_result($stmt);
   $rowsQueryDB = mysqli_fetch_all($resultQueryDB, MYSQLI_ASSOC);
 
   if ($withId) {
 
     foreach ($rowsQueryDB as $row) {
+      $row["name"] = filterUserString($row["name"]);
       $categories[] = $row;
     }
 
   } else {
 
     foreach ($rowsQueryDB as $row) {
-      $categories[] = $row["name"];
+      $categories[] = filterUserString($row["name"]);
     }
 
   }
@@ -73,6 +80,9 @@ function getCategories($dbLink, $withId = false) {
     $categories = [];
     return $categories;
   }
+
+  // закрываем запрос
+  mysqli_stmt_close($stmt);
 
   //(( возвращаем нормальный массив с данными ))
   return $categories;
@@ -112,15 +122,28 @@ WHERE lots.date_end > NOW()
 GROUP BY lots.id
 ";
 
-  $resultQueryDB = mysqli_query($dbLink, $sql);
+  // подготавливаем запрос
+  $stmt = db_get_prepare_stmt($dbLink, $sql);
+
+  // выполняем запрос
+  $resultQuery = mysqli_stmt_execute($stmt);
 
   //(( если запрос не прошел - показать ошибку ))
-  $resultQueryDB ?: displayDataErrorFromDB($dbLink);
+  $resultQuery ?: displayDataErrorFromDB($dbLink);
 
   //(( 'вытряхиваем' результат из базды данных ))
+  $resultQueryDB = mysqli_stmt_get_result($stmt);
   $rowsQueryDB = mysqli_fetch_all($resultQueryDB, MYSQLI_ASSOC);
 
   foreach ($rowsQueryDB as $row) {
+
+    foreach ($row as $rowKey => $rowValue) {
+
+      if (is_string($rowValue)) {
+        $row[$rowKey] = filterUserString($rowValue);
+      }
+    }
+
     $lots[] = $row;
   }
 
@@ -136,6 +159,9 @@ GROUP BY lots.id
     $lotsWithIndex[(integer)$oneLot["id"]] = $oneLot;
   }
 
+  // закрываем запрос
+  mysqli_stmt_close($stmt);
+
   return $lotsWithIndex;
 }
 
@@ -150,8 +176,8 @@ GROUP BY lots.id
 /**
  * get info about lot by it's id
  *
- * @param $dbLink   - resource of connection with db
- * @param int $id   - id of requested lot
+ * @param $dbLink - resource of connection with db
+ * @param int $id - id of requested lot
  *
  * @return null
  */
@@ -170,21 +196,40 @@ SELECT
   categories.name AS category,
   MAX(rates.price) AS price
   
+  
 FROM `lots`
-  JOIN `rates` ON lots.id = rates.lot
+  LEFT JOIN `rates` ON lots.id = rates.lot
   JOIN `categories` ON lots.category = categories.id
   
 WHERE lots.user_winner IS NULL
-      AND lots.id = $id
+      AND lots.id =?
+      
+GROUP BY lots.id
 ";
-  $resultQueryDB = mysqli_query($dbLink, $sql);
+
+
+  // подготавливаем запрос
+  $stmt = db_get_prepare_stmt($dbLink, $sql, [$id]);
+
+  // выполняем запрос
+  $resultQuery = mysqli_stmt_execute($stmt);
 
   //(( если запрос не прошел - показать ошибку ))
-  $resultQueryDB ?: displayDataErrorFromDB($dbLink);
+  $resultQuery ?: displayDataErrorFromDB($dbLink);
 
+  //(( 'вытряхиваем' результат из базды данных ))
+  $resultQueryDB = mysqli_stmt_get_result($stmt);
   $rowsQueryDB = mysqli_fetch_all($resultQueryDB, MYSQLI_ASSOC);
 
   $lotInfo = $rowsQueryDB[0];
+
+  // фильтруем данные для избежания xss уязвимости
+  foreach ($lotInfo as $lotInfoKey => $lotInfoValue) {
+
+    if(is_string($lotInfoValue)){
+      $lotInfo[$lotInfoKey] = filterUserString($lotInfoValue);
+    }
+  }
 
   //(( если такого лота не существует, то вернуть null ))
   if (is_null($lotInfo["name"])) {
@@ -197,6 +242,9 @@ WHERE lots.user_winner IS NULL
   //(( считаем текущую ставку на основании пред макс ставки и шага ставки ))
   $minRate = (integer)$lotInfo["price"] + (integer)$lotInfo["rateStep"];
   $lotInfo["minRate"] = $minRate;
+
+  // закрываем запрос
+  mysqli_stmt_close($stmt);
 
   return $lotInfo;
 
@@ -213,13 +261,14 @@ WHERE lots.user_winner IS NULL
 /**
  * get rates for lot by it's id
  *
- * @param $dbLink   - resource of connection with db
- * @param int $id   - id of requested lot
+ * @param $dbLink - resource of connection with db
+ * @param int $id - id of requested lot
  *
  * @return array
  */
 function getRatesForLot($dbLink, int $id) {
   $rates = [];
+
   $sql = "
 SELECT 
   rates.price AS price,
@@ -228,28 +277,44 @@ SELECT
   UNIX_TIMESTAMP(rates.created_at) AS ts
 FROM `rates`
   JOIN `users` ON rates.user = users.id
-WHERE rates.lot = $id
+WHERE rates.lot = ?
       AND rates.created_at > '2017.08.01'
 ORDER BY rates.created_at DESC
 ";
 
-  $resultQueryDB = mysqli_query($dbLink, $sql);
+
+  // подготавливаем запрос
+  $stmt = db_get_prepare_stmt($dbLink, $sql, [$id]);
+
+  // выполняем запрос
+  $resultQuery = mysqli_stmt_execute($stmt);
 
   //(( если запрос не прошел - показать ошибку ))
-  $resultQueryDB ?: displayDataErrorFromDB($dbLink);
+  $resultQuery ?: displayDataErrorFromDB($dbLink);
 
   //(( 'вытряхиваем' результат из базды данных ))
+  $resultQueryDB = mysqli_stmt_get_result($stmt);
   $rowsQueryDB = mysqli_fetch_all($resultQueryDB, MYSQLI_ASSOC);
 
   foreach ($rowsQueryDB as $row) {
+
+    foreach ($row as $rowKey => $rowValue) {
+      if(is_string($rowValue)){
+        $row[$rowKey] = filterUserString($rowValue);
+      }
+    }
+
     $rates[] = $row;
   }
-
+  
   //(( если результат нулевой, возращаем просто пустой массив))
   if (count($rates) === 0) {
     $rates = [];
     return $rates;
   }
+
+  // закрываем запрос
+  mysqli_stmt_close($stmt);
 
   //(( возвращаем нормальный массив с данными ))
   return $rates;
@@ -268,10 +333,10 @@ ORDER BY rates.created_at DESC
 /**
  * setting user rate for certain lot
  *
- * @param $dbLink       - resource of connection with db
- * @param int $idLot    - id of requested lot
- * @param $userRate     - new user rate
- * @param int $idUser   - concrete user by id
+ * @param $dbLink - resource of connection with db
+ * @param int $idLot - id of requested lot
+ * @param $userRate - new user rate
+ * @param int $idUser - concrete user by id
  *
  * @return null
  */
@@ -291,6 +356,9 @@ INSERT INTO rates (`price`, `lot`, `user`) VALUES (?, ?, ?);
 
   //(( если запрос не прошел - показать ошибку ))
   $resultQuery ?: displayDataErrorFromDB($dbLink);
+
+  // закрываем запрос
+  mysqli_stmt_close($stmt);
 
   return null;
 
@@ -318,7 +386,20 @@ function setNewLot($dbLink, array $lotInfo) {
 
   //(( экранируем данные ))
   foreach ($lotInfo as $lotInfoKey => $lotValue) {
-    $lotInfoForSql[] = mysqli_real_escape_string($dbLink, $lotValue);
+    if (
+        $lotInfoKey == 'initPrice'
+        ||
+        $lotInfoKey == 'rateStep'
+        ||
+        $lotInfoKey == 'idAuthor'
+        ||
+        $lotInfoKey == 'idCategory'
+    ) {
+      $lotInfoForSql[] =
+          (integer)(mysqli_real_escape_string($dbLink, $lotValue));
+    } else {
+      $lotInfoForSql[] = mysqli_real_escape_string($dbLink, $lotValue);
+    }
   }
 
   //(( сам запрос ))
@@ -341,6 +422,9 @@ VALUES (?,?,?,?,?,?,?,?)
 
   //(( если запрос не прошел - показать ошибку ))
   $resultQuery ?: displayDataErrorFromDB($dbLink);
+
+  // закрываем запрос
+  mysqli_stmt_close($stmt);
 
   return mysqli_insert_id($dbLink);
 
@@ -401,6 +485,9 @@ VALUES (?,?,?,?,?)
   //(( если запрос не прошел - показать ошибку ))
   $resultQuery ?: displayDataErrorFromDB($dbLink);
 
+  // закрываем запрос
+  mysqli_stmt_close($stmt);
+
 }
 
 //-------------------------------------
@@ -414,7 +501,7 @@ VALUES (?,?,?,?,?)
 /**
  * get info about user by his email
  *
- * @param $dbLink         - resource of connection with db
+ * @param $dbLink - resource of connection with db
  * @param string $email
  *
  * @return null
@@ -426,14 +513,20 @@ SELECT
 users.email,
 users.password
 FROM `users`
-WHERE users.email = '$email'
+WHERE users.email = ?
 ";
 
-  $resultQueryDB = mysqli_query($dbLink, $sql);
+  // подготавливаем запрос
+  $stmt = db_get_prepare_stmt($dbLink, $sql, [$email]);
+
+  // выполняем запрос
+  $resultQuery = mysqli_stmt_execute($stmt);
 
   //(( если запрос не прошел - показать ошибку ))
-  $resultQueryDB ?: displayDataErrorFromDB($dbLink);
+  $resultQuery ?: displayDataErrorFromDB($dbLink);
 
+  //  вытряхиваем из за проса данные
+  $resultQueryDB = mysqli_stmt_get_result($stmt);
   $rowsQueryDB = mysqli_fetch_all($resultQueryDB, MYSQLI_ASSOC);
 
   $userInfo = $rowsQueryDB;
@@ -443,7 +536,16 @@ WHERE users.email = '$email'
     return null;
   }
 
-  return $userInfo[0];
+  $userInfo = $userInfo[0];
+
+  foreach ($userInfo as $userInfoKey => $userInfoValue) {
+    $userInfo[$userInfoKey] = filterUserString($userInfoValue);
+  }
+
+  // закрываем запрос
+  mysqli_stmt_close($stmt);
+
+  return $userInfo;
 }
 
 //-------------------------------------
@@ -484,23 +586,38 @@ FROM `rates`
   JOIN `users` ON lots.user_author = users.id 
 
 WHERE 
-rates.user = $idUser
+rates.user = ?
 
 ";
 
-  $resultQueryDB = mysqli_query($dbLink, $sql);
+  // подготавливаем запрос
+  $stmt = db_get_prepare_stmt($dbLink, $sql, [$idUser]);
+
+  // выполняем запрос
+  $resultQuery = mysqli_stmt_execute($stmt);
 
   //(( если запрос не прошел - показать ошибку ))
-  $resultQueryDB ?: displayDataErrorFromDB($dbLink);
+  $resultQuery ?: displayDataErrorFromDB($dbLink);
 
+  //  вытряхиваем из за проса данные
+  $resultQueryDB = mysqli_stmt_get_result($stmt);
   $rowsQueryDB = mysqli_fetch_all($resultQueryDB, MYSQLI_ASSOC);
 
   $ratesInfo = $rowsQueryDB;
+
+  foreach ($ratesInfo as $ratesInfoKey => $ratesInfoValue) {
+    if (is_string($ratesInfoValue)) {
+      $ratesInfo[$ratesInfoKey] = filterUserString($ratesInfoValue);
+    }
+  }
 
   //(( если нет ставок, то вернуть null ))
   if (count($ratesInfo) === 0) {
     return null;
   }
+
+  // закрываем запрос
+  mysqli_stmt_close($stmt);
 
   return $ratesInfo;
 }

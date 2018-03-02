@@ -3,44 +3,43 @@
 //    imported files / modules
 //-------------------------------------
 
-session_start();
-
 require_once ('./helpers/enableErrorReporting.php');
-require_once('./helpers/handleTemplates.php');
 require_once('./helpers/common.php');
+require_once('./helpers/handleTemplates.php');
+require_once('./helpers/mysql_helper.php');
 require_once('./helpers/helperDB.php');
 $dbLink = require_once('./config/init.php');
-$dataForIndexPage = require('./phpInitialData/dataForTemplateIndex.php');
-/*$goodsAds = require('./phpInitialData/dataLots.php');*/
+
+//$goodsAds = require('./phpInitialData/dataLots.php');
 
 //-------------------------------------
 //    imported files/modules
 //--------------------------------------------------------------------------
 
 //--------------------------------------------------------------------------
+//    redirect if not logged
+//-------------------------------------
+
+session_start();
+
+if (!isset($_SESSION["userName"])) {
+  send403();
+}
+
+//-------------------------------------
+//    redirect if not logged
+//--------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------
 //    common variables for layout
 //-------------------------------------
 
-$title = "Главная";
+$title = "Мои ставки";
 $user_avatar = 'img/user.jpg';
 $content = "Если видно это сообщение, то контент шаблона не был сформирован";
 
 //-------------------------------------
 //    common variables for layout
-//--------------------------------------------------------------------------
-
-//--------------------------------------------------------------------------
-//    selecting lots from database
-//-------------------------------------
-
-$lots = getOpenLots($dbLink);
-
-foreach ($lots as &$oneLot){
-  $oneLot["dateEnd"] = parseToHumanTime($oneLot["dateEnd"] ,true);
-}
-
-//-------------------------------------
-//    selecting lots from database
 //--------------------------------------------------------------------------
 
 //--------------------------------------------------------------------------
@@ -57,15 +56,27 @@ $categories = getCategories($dbLink);
 //    choosing appropriate template and corresponding data for it
 //-------------------------------------
 
-$requiredTemplate = 'phpTemplates\indexTemplate.php';
-$templateData = [
-    'goodsAds'             => $lots,
-    'goodsCategories'      => $categories,
-    'classesForCategories' => $dataForIndexPage['classesForCategories'],
-    'lot_time_remaining'   => $dataForIndexPage['lot_time_remaining']
-];
+//(( id текущего юзера, по которому вытащим его ставки ))
+$userId = (integer)$_SESSION["userId"];
 
-$content = getContent($requiredTemplate, $templateData);
+//(( получаем инфомрацию о ставках нашего пользователя ))
+$userRatesInfo = getRatesByUser($dbLink, $userId);
+
+if (is_null($userRatesInfo)) {
+  $userRatesInfo = [];
+} else {
+  foreach ($userRatesInfo as &$oneRate) {
+    $oneRate["lot_id"] = (integer)$oneRate["lot_id"];
+    $oneRate["rate_createdAt"] =
+        parseToHumanTime($oneRate["rate_createdAt"]);
+    $oneRate["lot_dateEnd"] =
+        parseToHumanTime($oneRate["lot_dateEnd"], true);
+  }
+}
+
+$templateData = compact("userRatesInfo", "categories");
+$content = getContent('phpTemplates\myLotsTemplate.php', $templateData);
+
 
 //-------------------------------------
 //    choosing appropriate template and corresponding data for it
@@ -83,5 +94,6 @@ print($wholeHTML);
 //-------------------------------------
 //    final output to user
 //--------------------------------------------------------------------------
+
 
 ?>

@@ -5,15 +5,13 @@
 
 session_start();
 
-require_once ('./helpers/enableErrorReporting.php');
-require_once('./helpers/handleTemplates.php');
+require_once('./helpers/enableErrorReporting.php');
 require_once('./helpers/common.php');
+require_once('./helpers/handleTemplates.php');
 require_once('./helpers/handleForms.php');
-require_once('./config/init.php');
+require_once('./helpers/mysql_helper.php');
 require_once('./helpers/helperDB.php');
-
-/*$goodsAds = require('phpInitialData/dataLots.php');
-$bets = require('phpInitialData/dataLot.php');*/
+require_once('./config/init.php');
 
 //-------------------------------------
 //    imported files/modules
@@ -162,8 +160,8 @@ if ($isFormSent) {
     $lotIdAuthor = $lotInfo ["idAuthor"];             // id автора лота
     $userIdSession = $_SESSION["userId"] ?? "-1";     // залогинен ли user
     $idUserBets = [];                                 // список id ставок юзера
-    foreach ($bets as $oneBet){
-      $idUserBets[] =  $oneBet["idUser"];
+    foreach ($bets as $oneBet) {
+      $idUserBets[] = $oneBet["idUser"];
     }
 
     //(( пользователь  залогинен ?))
@@ -176,7 +174,7 @@ if ($isFormSent) {
     $showRateForm3 = $lotIdAuthor != $userIdSession;
 
     //(( не была ли хоть одной ставка на лот от залогиненного юзера ? ))
-    $showRateForm4 = !in_array($userIdSession,$idUserBets);
+    $showRateForm4 = !in_array($userIdSession, $idUserBets);
 
     $showRateForm =
         ($showRateForm1 && $showRateForm2 && $showRateForm3 && $showRateForm4);
@@ -186,7 +184,6 @@ if ($isFormSent) {
       $oneBet["ts"] = parseToHumanTime($oneBet["ts"]);
     }
     $lotInfo["dateEnd"] = parseToHumanTime($lotInfo["dateEnd"], true);
-
 
 
     $templateData = compact(
@@ -257,16 +254,15 @@ if ($isFormSent) {
 
   $idLot = (integer)$lotInfo["id"];                 // id лота
   $title = $lotInfo['name'];                        // заголовок страницы
-  $bets = getRatesForLot($dbLink, $idLot);        // ставки лота
-
+  $bets = getRatesForLot($dbLink, $idLot);          // ставки лота
 
   $lotDateEnd = $lotInfo["dateEnd"];                // int время конца лота
   $timeNow = strtotime("now");                      // текущее время
   $lotIdAuthor = $lotInfo ["idAuthor"];             // id автора лота
   $userIdSession = $_SESSION["userId"] ?? "-1";     // залогинен ли user
   $idUserBets = [];                                 // список id ставок юзера
-  foreach ($bets as $oneBet){
-    $idUserBets[] =  $oneBet["idUser"];
+  foreach ($bets as $oneBet) {
+    $idUserBets[] = $oneBet["idUser"];
   }
 
   //(( пользователь  залогинен ?))
@@ -279,7 +275,7 @@ if ($isFormSent) {
   $showRateForm3 = $lotIdAuthor != $userIdSession;
 
   //(( не была ли хоть одной ставка на лот от залогиненного юзера ? ))
-  $showRateForm4 = !in_array($userIdSession,$idUserBets);
+  $showRateForm4 = !in_array($userIdSession, $idUserBets);
 
   $showRateForm =
       ($showRateForm1 && $showRateForm2 && $showRateForm3 && $showRateForm4);

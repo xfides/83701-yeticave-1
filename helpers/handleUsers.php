@@ -51,22 +51,35 @@ SELECT
   users.name,
   users.password
 FROM `users`
-WHERE users.email = '$safeUserEmail'
+WHERE users.email = ?
 ";
 
-  $resultQueryDB = mysqli_query($dbLink, $sql);
+  // подготавливаем запрос
+  $stmt = db_get_prepare_stmt($dbLink, $sql, [$safeUserEmail]);
+
+  // выполняем запрос
+  $resultQuery = mysqli_stmt_execute($stmt);
 
   //(( если запрос не прошел - показать ошибку ))
-  $resultQueryDB ?: displayDataErrorFromDB($dbLink);
+  $resultQuery ?: displayDataErrorFromDB($dbLink);
 
   //(( 'вытряхиваем' результат из базды данных ))
+  $resultQueryDB = mysqli_stmt_get_result($stmt);
   $rowsQueryDB = mysqli_fetch_all($resultQueryDB, MYSQLI_ASSOC);
 
   if (count($rowsQueryDB) === 0) {
     return false;
-  } else {
-    return $rowsQueryDB[0];
   }
+
+  $userRow = $rowsQueryDB[0];
+
+  foreach ($userRow as $userRowKey => $userRowValue) {
+    if (is_string($userRowValue)) {
+      $userRow[$userRowKey] = filterUserString($userRowValue);
+    }
+  }
+
+  return $userRow;
 
 }
 
@@ -90,11 +103,7 @@ function checkUserPassword(
     string $userPassword,
     string $userPasswordFromData
 ) {
-  if (password_verify($userPassword, $userPasswordFromData)) {
-    return true;
-  }
-
-  return false;
+  return password_verify($userPassword, $userPasswordFromData);
 
 }
 
@@ -124,7 +133,6 @@ function authorizeUser($userEmail, $userPassword, $dbLink) {
 
   //(( если пользозвателя нет в наших списках, вернуть что email - неверный))
 
-  /*$infoUser = CheckUserEmail($userEmail, $users);*/
   $infoUser = checkUserEmailDB($userEmail, $dbLink);
 
   if (!$infoUser) {
@@ -150,25 +158,5 @@ function authorizeUser($userEmail, $userPassword, $dbLink) {
 //     Authorize User
 //--------------------------------------------------------------------------
 
-
-/**
- * Making "unique =)" simple fingerPrint of User, coming  our site
- *
- * @return string
- */
-/*function DoUserFingerprint() {
-
-  $ipAddress = $_SERVER['REMOTE_ADDR'];
-
-  $userAgent = $_SERVER['HTTP_USER_AGENT'];
-
-  $parts = [$userAgent, $ipAddress];
-
-  $str = implode('', $parts);
-
-  $fingerprint = md5($str);
-
-  return $fingerprint;
-}*/
 
 ?>

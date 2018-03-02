@@ -78,7 +78,7 @@ $formClassInvalid = (count($formFieldsErrors) !== 0) ? " form--invalid" : "";
                 "";
             ?>
         >
-          Доски и лыжи
+          Доски и Лыжи
         </option>
         <option
             <?=

@@ -6,11 +6,11 @@
 
 session_start();
 require_once ('./helpers/enableErrorReporting.php');
-require_once('./helpers/handleTemplates.php');
 require_once('./helpers/common.php');
+require_once('./helpers/handleTemplates.php');
 require_once('./helpers/handleForms.php');
+require_once('./helpers/mysql_helper.php');
 require_once('./helpers/helperDB.php');
-
 $dbLink = require_once('./config/init.php');
 
 //-------------------------------------

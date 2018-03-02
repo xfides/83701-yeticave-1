@@ -52,7 +52,7 @@ function parseToHumanTime($givenTimestamp, bool $lateTimestamp = false) {
     $betTimeUntil = $givenTimestamp - $now;
 
     //(( пользователи могут запросить свои ставки, которые уже истекли ))
-    if($betTimeUntil <= 0){
+    if ($betTimeUntil <= 0) {
       return "время истекло";
     }
 
@@ -72,9 +72,9 @@ function parseToHumanTime($givenTimestamp, bool $lateTimestamp = false) {
 
     if ($lateTimestamp) {
       return (string)floor($betTimeUntil / 60 / 60 / 24) . " days";
-    } else {
-      return gmdate('d.m.y в H:i', $givenTimestamp);
     }
+
+    return gmdate('d.m.y в H:i', $givenTimestamp);
 
   }
 
@@ -82,17 +82,18 @@ function parseToHumanTime($givenTimestamp, bool $lateTimestamp = false) {
 
     if ($lateTimestamp) {
       return (string)$betHoursUntil . ":" . (string)$betMinutesUntil;
-    } else {
-      return (string)$betHoursUntil . " часов назад";
     }
+
+    return (string)$betHoursUntil . " часов назад";
+
 
   }
 
   if ($lateTimestamp) {
     return (string)$betMinutesUntil . " минут";
-  } else {
-    return (string)$betMinutesUntil . " минут назад";
   }
+
+  return (string)$betMinutesUntil . " минут назад";
 
 
 }

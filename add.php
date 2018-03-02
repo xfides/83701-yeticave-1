@@ -4,12 +4,12 @@
 //    imported files / modules
 //-------------------------------------
 
-require_once ('./helpers/enableErrorReporting.php');
+require_once('./helpers/enableErrorReporting.php');
+require_once('./helpers/common.php');
 require_once('./helpers/handleTemplates.php');
 require_once('./helpers/handleForms.php');
-require_once('./helpers/common.php');
-require_once('./helpers/helperDB.php');
 require_once('./helpers/mysql_helper.php');
+require_once('./helpers/helperDB.php');
 $dbLink = require_once('./config/init.php');
 
 //-------------------------------------
@@ -172,12 +172,15 @@ if ($isFormSent) {
     //(( правильно ли набрана пользователем дата ? ))
     $userLotDateEnd = $savedFormUserInput["lot-date"];
     $partsDate = [];
-    $isCorrectStringDate = preg_match(
+    $isCorrectStringDate =
+        preg_match(
             '/^(\\d{2})\\.(\\d{2})\\.(\\d{4})$/',
             $userLotDateEnd,
             $partsDate
         )
-        && checkdate($partsDate[2], $partsDate[1], $partsDate[3]);
+        &&
+        checkdate($partsDate[2], $partsDate[1], $partsDate[3]);
+
     if (!$isCorrectStringDate) {
       $formFieldsErrors["lot-date"] = $formFields["lot-date"]["errorFormat"];
       $isError = true;
@@ -279,7 +282,7 @@ if ($isFormSent) {
         "rateStep"   => (integer)$savedFormUserInput["lot-step"],       //+
         "dateEnd"    => $lotUserDateSql,                                //+
         "idAuthor"   => (integer)$_SESSION["userId"],                   //+
-        "idCategory" => $idCategory                                     //+
+        "idCategory" => (integer)$idCategory                            //+
     ];
 
     //(( отправляем запрос в базу данных ))
